@@ -3,6 +3,8 @@ package main
 
 import (
 	"context"
+	"encoding/json"
+	"io"
 	"net/http"
 	"os"
 
@@ -36,14 +38,13 @@ func indexHandler(w http.ResponseWriter, r *http.Request) {
 
 	ctx, logger := initializeLogging(ctx, client, requestID)
 
-	debug(ctx, logger, "Request Recevied", map[string]interface{}{
-		"url":    r.URL,
+	requestMetadata := map[string]interface{}{
+		"url":    r.URL.Path,
 		"header": r.Header,
-	})
+	}
+	debug(ctx, logger, "Request Recevied", requestMetadata)
 
-	w.WriteHeader(http.StatusNoContent)
-	w.Header().Set("Content-Type", "application/json")
-
+	writeResponse(w, *r, requestMetadata)
 }
 
 func getProjectID(ctx context.Context) string {
@@ -59,4 +60,14 @@ func getOrCreateRequestID(header http.Header) string {
 		return requestID
 	}
 	return uuid.New().String()
+}
+
+func writeResponse(w http.ResponseWriter, r http.Request, metadata map[string]interface{}) {
+	w.Header().Set("Content-Type", "application/json")
+
+	w.WriteHeader(http.StatusOK)
+
+	metadata["message"] = "Hello, world !"
+	metadataJSON, _ := json.Marshal(metadata)
+	io.WriteString(w, string(metadataJSON))
 }

@@ -15,7 +15,7 @@ func setUp() {
 	os.Setenv(envKeyLoggerJob, "api")
 }
 
-func TestApi(t *testing.T) {
+func TestApiWithoutHeader(t *testing.T) {
 	setUp()
 	req, err := http.NewRequest("GET", "/", nil)
 	if err != nil {
@@ -30,9 +30,40 @@ func TestApi(t *testing.T) {
 
 	if status := recorder.Code; status != http.StatusNoContent {
 		t.Errorf("handler returned wrong status code: got %v want %v",
-			status, http.StatusNoContent)
+			status, http.StatusOK)
 	}
 
+	expected := `{"header":{},"message":"Hello, world !","url":"/"}`
+	if recorder.Body.String() != expected {
+		t.Errorf("handler returned unexpected body: got %v want %v",
+			recorder.Body.String(), expected)
+	}
+}
+
+func TestApiWith(t *testing.T) {
+	setUp()
+	req, err := http.NewRequest("GET", "/", nil)
+	req.Header.Set("key_header", "value_header")
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	// Create a ResponseRecorder (which satisfies http.ResponseWriter) to record the response.
+	recorder := httptest.NewRecorder()
+	handler := http.HandlerFunc(indexHandler)
+
+	handler.ServeHTTP(recorder, req)
+
+	if status := recorder.Code; status != http.StatusOK {
+		t.Errorf("handler returned wrong status code: got %v want %v",
+			status, http.StatusOK)
+	}
+
+	expected := `{"header":{"Key_header":["value_header"]},"message":"Hello, world !","url":"/"}`
+	if recorder.Body.String() != expected {
+		t.Errorf("handler returned unexpected body: got %v want %v",
+			recorder.Body.String(), expected)
+	}
 }
 
 func TestGetOrCreateRequestIdWithoutRequestID(t *testing.T) {
