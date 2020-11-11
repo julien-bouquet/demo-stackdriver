@@ -1,0 +1,95 @@
+/* Query to create work table */
+/* typeMethod =>
+    -2 = CLEAN = DELETE + INSERT ;
+    -1 = DELETE ;
+    0 = nothing to do ;
+    1 = INSERT ;
+    2 = UPDATE*/
+CREATE OR REPLACE TABLE `test.dest_job_id`
+    partition BY RANGE_BUCKET(`type_method`, GENERATE_ARRAY(-2, 2, 1))
+AS
+WITH
+load AS (
+    SELECT
+        `dat`,         `num`,         `typ`,         `val`,         `integer`,         `record`,         STRUCT(TRUE AS `working_data`, '000' AS `tec_version`, CAST(null AS STRING) AS `tec_lineage`) AS dfdp_tec
+    FROM `project-id.test.load`
+    ),
+dest AS (
+    SELECT
+`dat`,
+`num`,
+`typ`,
+`val`,
+`integer`,
+`record`,
+        struct(FALSE AS `working_data`, '000' AS `tec_version`, CAST(null AS STRING) AS `tec_lineage`) AS dfdp_tec
+    FROM `project-id.test.dest`
+    ),
+filter_pk AS (
+    SELECT DISTINCT
+ `record`.`pk` AS `record.pk`,
+        TRUE AS `test`
+    FROM load
+    ),
+filtered_dest AS (
+    SELECT dest.*
+    FROM dest
+    /* join to select data from the pk of the working table get distinct of value for the pk and join on the value ALWAYS*/
+    LEFT OUTER JOIN filter_pk
+        ON (`dest`.`record`.`pk` IS NULL) = (`filter_pk`.`record.pk` IS NULL) AND COALESCE(`dest`.`record`.`pk`, 0) = COALESCE(`filter_pk`.`record.pk`, 0)
+    WHERE `filter_pk`.`test` 
+    ),
+allData AS (
+    SELECT
+        /*PK*/
+ `record`.`pk`,
+        /*DATA + dfdp_tec*/
+        ARRAY_AGG(STRUCT(
+`dat`,
+`num`,
+`typ`,
+`val`,
+`integer`,
+`record`,
+ dfdp_tec)
+            ORDER BY dfdp_tec.`tec_version` DESC, dfdp_tec.`working_data` DESC) AS `dt`,
+        /*tec information*/
+        /*get last version for this pk*/
+        MAX(dfdp_tec.tec_version) AS tec_version_rank1,
+        /*get number of data from load*/
+        COUNT(NULLIF(dfdp_tec.`working_data`, FALSE)) AS `number_working_data`,
+        /*get number of data from dest*/
+        COUNT(NULLIF(dfdp_tec.`working_data`, TRUE)) AS `number_target_data`,
+    FROM ((SELECT * FROM load) UNION ALL (SELECT * FROM filtered_dest))
+    /*group by PK*/
+    GROUP BY `record`.`pk`     ),
+analyzeData AS (
+    SELECT
+        * REPLACE(
+            ARRAY(
+                SELECT AS struct *
+                    EXCEPT(rank_new_version)
+                    REPLACE(STRUCT(dfdp_tec.working_data, dfdp_tec.tec_version, dfdp_tec.tec_lineage, rank_new_version+1 AS rank_new_version) AS dfdp_tec)
+                FROM UNNEST(dt)
+                WITH OFFSET AS rank_new_version) AS dt),
+        /*calcul of number of version*/
+        /*test target is last*/
+        NOT(dt[OFFSET(0)].dfdp_tec.`working_data`)  AS `target_is_last`,
+    FROM allData
+    )
+SELECT
+    *,
+    CASE
+        /*clean option*/
+        /*too many target data => clean = delete + insert*/
+        WHEN `number_target_data` > 1 THEN -2
+        /*no target data, it's new data => insert*/
+        WHEN `number_target_data` = 0 THEN 1
+        /*force update option*/
+        /*the best one (rank1) is not a workingData, the target is the best version => do nothing*/
+        WHEN `target_is_last` THEN 0
+        /*else not too old, with target_data, working_data, not the same, and the best one is not the target => update*/
+        ELSE 2
+        END `type_method`
+FROM analyzeData
+;"
