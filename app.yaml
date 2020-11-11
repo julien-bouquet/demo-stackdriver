@@ -2,3 +2,4 @@ runtime: go112
 
 env_variables:
     LOGGER_NAME: "my-app"
+    LOGGER_JOB: "api"
