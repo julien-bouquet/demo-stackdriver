@@ -11,8 +11,8 @@ import (
 func setUp() {
 	jsonPath := "credentials/test.json"
 	os.Setenv("GOOGLE_APPLICATION_CREDENTIALS", jsonPath)
-	os.Setenv(envKeyLoggerName, "test-my-app")
-	os.Setenv(envKeyLoggerJob, "api")
+	os.Setenv("LOGGER_NAME", "test-my-app")
+	os.Setenv("LOGGER_JOB", "api")
 }
 
 func TestApiWithoutHeader(t *testing.T) {

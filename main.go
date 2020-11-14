@@ -11,7 +11,7 @@ import (
 	"os"
 
 	"github.com/google/uuid"
-	"golang.org/x/oauth2/google"
+	"github.com/julien-bouquet/demo-stackdriver/gcp"
 )
 
 // Use to set task_id in Resource of logs
@@ -39,25 +39,25 @@ func indexHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	client := createClientLogger(ctx)
+	client := gcp.CreateClientLogger(ctx)
 	defer client.Close()
 
-	logger := newLoggerGenericTask(client, requestID)
+	ctx = gcp.InitializeLogger(ctx, client, requestID)
 
 	requestMetadata := map[string]interface{}{
 		"url":    r.URL.Path,
 		"header": r.Header,
 	}
-	logger.debug("Request Recevied", requestMetadata)
+
+	gcp.Debug(ctx, "Request Recevied", requestMetadata)
+
+	doSomething(ctx)
 
 	writeResponse(w, *r, requestMetadata)
 }
 
-func getProjectID(ctx context.Context) string {
-	/// Return authenticated GCP ProjectID
-	cred, _ := google.FindDefaultCredentials(ctx)
-
-	return cred.ProjectID
+func doSomething(ctx context.Context) {
+	gcp.Warn(ctx, "Do something", nil)
 }
 
 func getOrCreateRequestID(header http.Header) string {

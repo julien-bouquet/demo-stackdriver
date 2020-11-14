@@ -1,4 +1,4 @@
-package main
+package gcp
 
 import (
 	"context"
@@ -33,15 +33,21 @@ func newLoggerGenericTask(client *logging.Client, taskID string) loggerGenericTa
 	return logger
 }
 
-func createClientLogger(ctx context.Context) *logging.Client {
+// CreateClientLogger aa
+func CreateClientLogger(ctx context.Context) *logging.Client {
 	projectID := getProjectID(ctx)
 	client, _ := logging.NewClient(ctx, projectID)
 
 	return client
 }
 
-func (logger loggerGenericTask) debug(message string, context interface{}) {
+// InitializeLogger aa
+func InitializeLogger(ctx context.Context, client *logging.Client, taskID string) context.Context {
+	loggerGenericTask := newLoggerGenericTask(client, taskID)
+	return context.WithValue(ctx, "logger", loggerGenericTask)
+}
 
+func (logger loggerGenericTask) log(message string, context interface{}, severity logging.Severity) {
 	payload := map[string]interface{}{}
 	payload["message"] = message
 	payload["context"] = context
@@ -59,4 +65,14 @@ func (logger loggerGenericTask) debug(message string, context interface{}) {
 	}
 	fmt.Println(payload)
 	logger.Client.Log(entry)
+}
+
+func Debug(ctx context.Context, message string, context interface{}) {
+	logger := ctx.Value("logger").(loggerGenericTask)
+	logger.log(message, context, logging.ParseSeverity("Debug"))
+}
+
+func Warn(ctx context.Context, message string, context interface{}) {
+	logger := ctx.Value("logger").(loggerGenericTask)
+	logger.log(message, context, logging.ParseSeverity("Warning"))
 }
