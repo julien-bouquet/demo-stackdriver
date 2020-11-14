@@ -48,7 +48,7 @@ func indexHandler(w http.ResponseWriter, r *http.Request) {
 		"url":    r.URL.Path,
 		"header": r.Header,
 	}
-	debug(logger, "Request Recevied", requestMetadata)
+	logger.debug("Request Recevied", requestMetadata)
 
 	writeResponse(w, *r, requestMetadata)
 }

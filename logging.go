@@ -40,7 +40,7 @@ func createClientLogger(ctx context.Context) *logging.Client {
 	return client
 }
 
-func debug(logger loggerGenericTask, message string, context interface{}) {
+func (logger loggerGenericTask) debug(message string, context interface{}) {
 
 	payload := map[string]interface{}{}
 	payload["message"] = message
