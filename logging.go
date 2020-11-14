@@ -15,6 +15,24 @@ var envKeyLoggerName = "LOGGER_NAME"
 // Set Job in Resource of logs
 var envKeyLoggerJob = "LOGGER_JOB"
 
+type loggerGenericTask struct {
+	LoggerType string
+	LoggerJob  string
+	TaskID     string
+	Client     *logging.Logger
+}
+
+func newLoggerGenericTask(client *logging.Client, taskID string) loggerGenericTask {
+	logger := loggerGenericTask{}
+	logger.LoggerType = "generic_task"
+	loggerJob := os.Getenv(envKeyLoggerJob)
+	logger.LoggerJob = loggerJob
+	logger.TaskID = taskID
+	loggerName := os.Getenv(envKeyLoggerName)
+	logger.Client = client.Logger(loggerName)
+	return logger
+}
+
 func createClientLogger(ctx context.Context) *logging.Client {
 	projectID := getProjectID(ctx)
 	client, _ := logging.NewClient(ctx, projectID)
@@ -22,21 +40,7 @@ func createClientLogger(ctx context.Context) *logging.Client {
 	return client
 }
 
-func initializeLogging(ctx context.Context, client *logging.Client, taskID string) (context.Context, *logging.Logger) {
-	ctx = context.WithValue(ctx, "loggerType", "generic_task")
-	loggerJob := os.Getenv(envKeyLoggerJob)
-	ctx = context.WithValue(ctx, "loggerJob", loggerJob)
-	ctx = context.WithValue(ctx, "loggerTaskID", taskID)
-
-	loggerName := os.Getenv(envKeyLoggerName)
-
-	return ctx, client.Logger(loggerName)
-}
-
-func debug(ctx context.Context, logger *logging.Logger, message string, context interface{}) {
-	loggerType := fmt.Sprintf("%v", ctx.Value("loggerType"))
-	loggerJob := fmt.Sprintf("%v", ctx.Value("loggerJob"))
-	loggerTaskID := fmt.Sprintf("%v", ctx.Value("loggerTaskID"))
+func debug(logger loggerGenericTask, message string, context interface{}) {
 
 	payload := map[string]interface{}{}
 	payload["message"] = message
@@ -45,14 +49,14 @@ func debug(ctx context.Context, logger *logging.Logger, message string, context 
 	entry := logging.Entry{
 		Payload: payload,
 		Resource: &monitoredres.MonitoredResource{
-			Type: loggerType,
+			Type: logger.LoggerType,
 			Labels: map[string]string{
-				"job":     loggerJob,
-				"task_id": loggerTaskID,
+				"job":     logger.LoggerJob,
+				"task_id": logger.TaskID,
 			},
 		},
 		Severity: logging.ParseSeverity("Debug"),
 	}
 	fmt.Println(payload)
-	logger.Log(entry)
+	logger.Client.Log(entry)
 }

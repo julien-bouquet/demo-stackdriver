@@ -42,13 +42,13 @@ func indexHandler(w http.ResponseWriter, r *http.Request) {
 	client := createClientLogger(ctx)
 	defer client.Close()
 
-	ctx, logger := initializeLogging(ctx, client, requestID)
+	logger := newLoggerGenericTask(client, requestID)
 
 	requestMetadata := map[string]interface{}{
 		"url":    r.URL.Path,
 		"header": r.Header,
 	}
-	debug(ctx, logger, "Request Recevied", requestMetadata)
+	debug(logger, "Request Recevied", requestMetadata)
 
 	writeResponse(w, *r, requestMetadata)
 }
